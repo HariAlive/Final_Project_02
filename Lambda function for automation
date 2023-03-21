@@ -1,0 +1,49 @@
+import json
+import requests
+import boto3
+from datetime import datetime
+
+def put_doc(dict1,table):
+    dynamodb_response = table.put_item(
+        Item = {
+            'timestamp': str(dict1['timestamp']),
+            'latitude':dict1['iss_position']['latitude'],
+            'longitude':dict1['iss_position']['longitude'],
+            'message':dict1['message'],
+            'date_time':datetime.now().strftime("%Y-%m-%d, %H:%M:%S")
+        }) 
+        
+        
+def post_slack_notification(slack_message):
+    # Define the Slack webhook URL
+    slack_webhook_url = "https://hooks.slack.com/services/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"
+    
+    # Send a POST request to the Slack webhook URL
+    response = requests.post(slack_webhook_url, json=slack_message)
+    
+    
+def lambda_handler(event, context):
+    
+    dynamodb = boto3.resource('dynamodb')
+    table = dynamodb.Table('project2')
+    
+    url = "http://api.open-notify.org/iss-now.json"
+    response = requests.get(url)
+    
+    
+    if response.status_code != 200:
+        slack_message = {
+            "text": "ALERT: Server {} is not available. Status code:{}".format(url,response.status_code)
+        }
+        post_slack_notification(slack_message)
+    
+    else:
+        dict1 = json.loads(response.content)
+        put_doc(dict1,table)
+    
+    print(response.content)
+    print(datetime.now().strftime("%Y-%m-%d, %H:%M:%S"))
+    return {
+        'statusCode': 200,
+        'body': json.dumps('Hello from Lambda!')
+    }
